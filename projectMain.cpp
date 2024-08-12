@@ -19,6 +19,7 @@ struct Process {
     int total_turnaround_time;
     int done_time;
     bool is_cpu_bound;
+    int context_switch;
 };
 
 double next_exp(double lambda, int bound){
@@ -44,14 +45,15 @@ void print_queue(std::queue<Process> queue){
 
 void simulate_fcfs1(std::vector<Process> processes, int tcs, std::ofstream& outfile){
     bool printAll = true;
-    std::queue<Process> ready_queue;  // Store Process objects directly
-    std::vector<Process> io_queue;  // Store Process objects directly
+    std::queue<Process> ready_queue;  //store Process objects directly
+    std::vector<Process> io_queue;  //sstore Process objects directly
     int current_time = 0;
     bool printInitial = true;
     Process current_process;
     bool has_current_process = false;
+    bool contextSwitching = false;
 
-    // Check if any processes arrive at time 0
+    //check if any processes arrive at time 0
     while (!processes.empty() && processes.front().arrival_time == 0) {
         ready_queue.push(processes.front());
         std::cout << "time 0ms: Process " << processes.front().id << " arrived; added to ready queue [Q";
@@ -66,7 +68,7 @@ void simulate_fcfs1(std::vector<Process> processes, int tcs, std::ofstream& outf
     }
 
     while ((!processes.empty() || !ready_queue.empty() || !io_queue.empty() || has_current_process)) {
-        // Check if any processes arrive
+        //check if any processes arrive
         for (auto it = processes.begin(); it != processes.end(); ) {
             if (it->arrival_time == current_time) {
                 ready_queue.push(*it);
@@ -78,7 +80,7 @@ void simulate_fcfs1(std::vector<Process> processes, int tcs, std::ofstream& outf
             }
         }
 
-        // Check if any processes are done with IO
+        //check if any processes are done with IO
         for (auto it = io_queue.begin(); it != io_queue.end(); ) {
             if (it->arrival_time == current_time) {
                 ready_queue.push(*it);
@@ -92,13 +94,29 @@ void simulate_fcfs1(std::vector<Process> processes, int tcs, std::ofstream& outf
             }
         }
 
-        // Check if CPU is idle
+        //check if CPU is idle
         if (!has_current_process && ready_queue.empty()) {
             current_time++;
             continue;
         }
 
-        // Handle the current process in the CPU
+        if(contextSwitching){
+            if(current_process.context_switch == 1){
+                int burst_time = current_process.cpu_bursts[current_process.current_burst_index];
+                if (current_time < 10000 || printAll) {
+                    std::cout << "time " << current_time << "ms: Process " << current_process.id << " started using the CPU for " << burst_time << "ms burst [Q";
+                    print_queue(ready_queue);
+                }
+                current_process.done_time = current_time + burst_time;
+                contextSwitching = false;
+            } else {
+                current_process.context_switch--;
+                current_time++;
+                continue;
+            }
+        }
+
+        //handle the current process in the CPU
         if (has_current_process) {
             if (current_process.done_time == current_time) {
                 if (current_process.current_burst_index < current_process.cpu_bursts.size()-1) {
@@ -114,32 +132,35 @@ void simulate_fcfs1(std::vector<Process> processes, int tcs, std::ofstream& outf
                                   << current_time + io_time + tcs / 2 << "ms [Q";
                         print_queue(ready_queue);
                     }
+
                 } else {
                     if (current_time < 10000 || printAll || current_process.current_burst_index == current_process.cpu_bursts.size()) {
                         std::cout << "time " << current_time << "ms: Process " << current_process.id << " terminated [Q";
                         print_queue(ready_queue);
                     }
                 }
+                contextSwitching = true;
                 has_current_process = false;
             }
         }
 
-        // Process the next process in the ready queue
-        if (!has_current_process && !ready_queue.empty()) {
+        //process the next process in ready queue
+        if ((!has_current_process && !ready_queue.empty())) {
             current_process = ready_queue.front();
             ready_queue.pop();
             has_current_process = true;
-
-            int burst_time = current_process.cpu_bursts[current_process.current_burst_index];
-            if (current_time < 10000 || printAll) {
-                std::cout << "time " << current_time << "ms: Process " << current_process.id << " started using the CPU for " << burst_time << "ms burst [Q";
-                print_queue(ready_queue);
+            current_process.context_switch = tcs / 2;
+            if(contextSwitching){
+                current_process.context_switch += tcs / 2;
+            } else {
+                contextSwitching = true;
             }
-            current_process.done_time = current_time + burst_time + tcs / 2;
         }
 
         current_time ++;
     }
+    std::cout << "time " << current_time + tcs / 2 - 1<< "sim ended" << std::endl;
+
 }
 // void simulate_fcfs(std::vector<Process>& processes, int tcs, std::ofstream& outfile) {
 //     std::queue<Process*> ready_queue;
