@@ -260,6 +260,12 @@ void simulate_rr(std::vector<Process> processes, int tcs, int tslice, std::ofstr
 
                 if (burst_time > tslice) {
                     current_process.cpu_bursts[current_process.current_burst_index] -= tslice;
+                    if(ready_queue.empty()){
+                        current_process.done_time = current_time + std::min(tslice, current_process.cpu_bursts[current_process.current_burst_index]);
+                        std::cout << "time " << current_time << "ms: Time slice expired; no preemption because ready queue is empty [Q empty]" << std::endl; 
+                        current_time ++ ;
+                        continue;
+                    }
                     if (current_time < 10000 || printAll) {
                         std::cout << "time " << current_time << "ms: Time slice expired; preempting process " << current_process.id << " with " << current_process.cpu_bursts[current_process.current_burst_index] << "ms remaining [Q";
                         print_queue(ready_queue);
@@ -268,7 +274,7 @@ void simulate_rr(std::vector<Process> processes, int tcs, int tslice, std::ofstr
                 } else {
                     if (current_process.current_burst_index < current_process.cpu_bursts.size() - 1) {
                         int io_time = current_process.io_bursts[current_process.current_burst_index];
-                        current_process.arrival_time = current_time + io_time + tcs;
+                        current_process.arrival_time = current_time + io_time + tcs / 2;
                         current_process.current_burst_index++;
                         io_queue.push_back(current_process);
                         if (current_time < 10000 || printAll) {
@@ -306,7 +312,7 @@ void simulate_rr(std::vector<Process> processes, int tcs, int tslice, std::ofstr
 
         current_time++;
     }
-    std::cout << "time " << current_time + tcs / 2 - 1 << "ms: Simulator ended" << std::endl;
+    std::cout << "time " << current_time + tcs / 2 - 1 << "ms: Simulator ended for RR [Q Empty]" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
